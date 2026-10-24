@@ -352,6 +352,7 @@ sealed class MainForm : Form
             "Dump the disc you own (for example with CleanRip on a Wii) as a plain .iso or .ciso, then choose it above. " +
             "The launcher copies the game files into the Disc folder once; the image file isn't needed afterwards."));
         body.Controls.Add(Note("In the game, F10 opens the settings menu (resolution, picture shape, controls, audio) and F11 switches between fullscreen and a window."));
+        body.Controls.Add(BuildHolidayRow());
         // Scooby's tips: click the bubble for another one.
         var tipRow = new FlowLayoutPanel { AutoSize = true, Margin = S(0, 10, 0, 6) };
         if (ScoobyArt != null)
@@ -374,6 +375,44 @@ sealed class MainForm : Form
         row.Controls.Add(Btn("Open saves and settings", (_, _) => Process.Start("explorer.exe", Directory.CreateDirectory(userData).FullName), Paper));
         body.Controls.Add(row);
         return card;
+    }
+
+    // The hubs' holiday events ([game] holiday): the game checks the date when a hub loads. "auto" uses today's date,
+    // "off" none, "MM-DD" pretends it is that day.
+    static readonly (string text, string value)[] Holidays =
+    {
+        ("By today's date", "auto"),
+        ("Off", "off"),
+        ("New Year's Day", "01-01"),
+        ("St. Patrick's Day", "03-17"),
+        ("Fourth of July", "07-04"),
+        ("Halloween", "10-31"),
+        ("Christmas", "12-25"),
+    };
+
+    Control BuildHolidayRow()
+    {
+        var row = new FlowLayoutPanel { AutoSize = true, Margin = S(0, 6, 0, 6), BackColor = Paper };
+        row.Controls.Add(new Label { Text = "Holidays", AutoSize = true, ForeColor = Ink, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), Margin = S(0, 8, 16, 0) });
+        var box = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = S(360), Cursor = glassHand };
+        foreach (var h in Holidays) box.Items.Add(h.text);
+        var current = new GameConfig(configPath).Get("game", "holiday") ?? "auto";
+        int index = Array.FindIndex(Holidays, h => h.value == current);
+        if (index < 0) { box.Items.Add("Custom date (" + current + ")"); index = box.Items.Count - 1; }
+        box.SelectedIndex = index;
+        box.SelectedIndexChanged += (_, _) =>
+        {
+            if (box.SelectedIndex >= Holidays.Length) return;
+            var c = new GameConfig(configPath);
+            c.SetString("game", "holiday", Holidays[box.SelectedIndex].value);
+            c.Save();
+        };
+        row.Controls.Add(box);
+        var wrap = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Margin = Padding.Empty, BackColor = Paper };
+        wrap.Controls.Add(row);
+        wrap.Controls.Add(Note("Outside Mystic Manor and in the playground, the game celebrates holidays on their real dates. " +
+                               "Pick one to see it any day, or turn them off."));
+        return wrap;
     }
 
     static readonly string[] Tips =

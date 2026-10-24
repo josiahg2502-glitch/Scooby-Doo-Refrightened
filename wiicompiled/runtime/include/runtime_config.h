@@ -52,6 +52,7 @@ struct RuntimeUserConfig {
     std::optional<bool> showFps;
     std::optional<bool> skipIntro;
     std::optional<bool> fps60;
+    std::optional<std::string> holiday;  // NO100F [game] holiday: "auto" (today), "off" or "MM-DD"
     std::optional<uint32_t> msaa;
     std::optional<bool> spinningCoins;  // NSMBW: [video] spinning_coins, animated tiles
     std::optional<bool> frameGraph;     // NSMBW: [video] frame_graph, frame times under the FPS counter
@@ -198,6 +199,17 @@ inline bool IsSupportedDisplayMode(std::string_view value) {
         "windowed", "borderless", "exclusive",
     };
     return std::find(values.begin(), values.end(), value) != values.end();
+}
+
+// NO100F [game] holiday: "auto", "off", or a forced date "MM-DD".
+inline bool IsSupportedHoliday(std::string_view value) {
+    if (value == "auto" || value == "off") return true;
+    if (value.size() != 5 || value[2] != '-') return false;
+    for (const size_t i : {size_t{0}, size_t{1}, size_t{3}, size_t{4}})
+        if (value[i] < '0' || value[i] > '9') return false;
+    const int month = (value[0] - '0') * 10 + (value[1] - '0');
+    const int day = (value[3] - '0') * 10 + (value[4] - '0');
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
 }
 
 // 240 was offered by an early build and is no longer supported; a saved 240 is
@@ -419,6 +431,10 @@ inline void EnsureConfigFile() {
               "# replacement would need. Both are read once, at startup.\n"
               "texture_replacements = true\n"
               "texture_dumps = false\n\n"
+              "[game]\n"
+              "# Holiday events in the hubs (fireworks, Halloween bats, ...): \"auto\" = by today's date,\n"
+              "# \"off\" = never, or \"MM-DD\" to pretend it is that day (e.g. \"10-31\").\n"
+              "holiday = \"auto\"\n\n"
               "[audio]\n"
               "volume = 1.0\n"
               "music_volume = 1.0\n"
@@ -593,6 +609,9 @@ inline RuntimeUserConfig ParseConfigDocument(const toml::value& document) {
     config.showFps = FindConfigValue<bool>(document, "video", "show_fps");
     config.skipIntro = FindConfigValue<bool>(document, "video", "skip_intro");
     config.fps60 = FindConfigValue<bool>(document, "video", "fps60");
+    if (auto value = FindConfigValue<std::string>(document, "game", "holiday"); value && IsSupportedHoliday(*value)) {
+        config.holiday = *value;
+    }
     if (auto value = FindConfigUint(document, "video", "msaa"); value && (*value == 1 || *value == 2 || *value == 4 || *value == 8)) {
         config.msaa = *value;
     }
@@ -1157,6 +1176,11 @@ inline bool Fps60(bool fallback = false) {
 
 inline bool SkipIntro(bool fallback = false) {
     return Get().skipIntro.value_or(fallback);
+}
+
+// NO100F: the date the hubs' holiday events see (launcher "Holidays"): "auto" = today, "off" = none, "MM-DD" = that day.
+inline std::string Holiday() {
+    return Get().holiday.value_or("auto");
 }
 
 inline bool ShowFps(bool fallback = true) {

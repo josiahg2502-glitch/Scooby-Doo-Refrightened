@@ -20,6 +20,7 @@ program, so there is no CPU emulator; the console's graphics, audio and system c
 - Gamepads and keyboard, remappable; button prompts match your Xbox, PlayStation or Nintendo controller
 - GameCube memory-card saves
 - Option to skip the intro movies; mods that replace game files or textures
+- The game's holiday events follow the real date, or pick a holiday or turn them off on the launcher's **Play** page
 
 **No game data is included.** You need your own disc image.
 
