@@ -2918,52 +2918,6 @@ static bool handle_draw(u8 cmd, const u8* data, u32& pos, u32 size, bool bigEndi
     return false;
   }
 
-
-  // A display list's vertex data cannot overlap a vertex array it indexes: stop the draw where a bound array
-  // begins. NO100F world lists declare sizes that run up to 31 bytes into the position array stored right
-  // after them (the CP fetches lists in 32-byte units, so hardware never reads them); a strip that read those
-  // bytes as 5 more vertices stretched an object in Mystic Manor into a slab across the courtyard. The
-  // declared bytes are still consumed so parsing stays in step.
-  struct TailSkip {
-    u32& pos;
-    u32 bytes = 0;
-    ~TailSkip() {
-      if (std::uncaught_exceptions() == 0) pos += bytes;  // a StagingBatchFull retry re-parses this draw
-    }
-  } tailSkip{pos};
-  if (g_replayingDisplayList) {
-    const u8* first = data + pos;
-    const u8* end = first + totalVtxBytes;
-    for (int a = GX_VA_POS; a <= GX_VA_TEX7; ++a) {
-      const auto* base = static_cast<const u8*>(g_gxState.arrays[a].data);
-      if ((g_gxState.vtxDesc[a] == GX_INDEX8 || g_gxState.vtxDesc[a] == GX_INDEX16) && base > first && base < end) end = base;
-    }
-    // The same overlap with a buffer that is not bound here (NO100F characters: the list's last 32-byte block is
-    // shared with the next allocation, so a strip's final vertices hold that buffer's floats): stop at a vertex in
-    // that block whose position index jumps past twice everything before it. Real geometry never does; those
-    // vertices threw a triangle across the screen from the character, different every frame.
-    const GXAttrType pd = g_gxState.vtxDesc[GX_VA_POS];
-    const u8* lastBlock = data + (size > 32 ? size - 32 : 0);
-    if ((pd == GX_INDEX8 || pd == GX_INDEX16) && end > lastBlock && vtxCount > 8) {
-      const u32 pre = matrix_index_prefix_size(fmt);
-      const auto posIdx = [&](const u8* v) {
-        return pd == GX_INDEX8 ? u32(v[pre]) : (bigEndian ? u32((v[pre] << 8) | v[pre + 1]) : u32(v[pre] | (v[pre + 1] << 8)));
-      };
-      const u32 tailStart = u32(std::max<std::ptrdiff_t>(0, (lastBlock - first + vtxSize - 1) / vtxSize));
-      u32 maxIdx = 0;
-      for (u32 i = 0; i < tailStart && i < vtxCount; ++i) maxIdx = std::max(maxIdx, posIdx(first + i * vtxSize));
-      for (u32 i = tailStart; tailStart >= 4 && i < u32(end - first) / vtxSize; ++i)
-        if (posIdx(first + i * vtxSize) > 2 * maxIdx + 16) { end = first + i * vtxSize; break; }
-    }
-    if (end != first + totalVtxBytes) UNLIKELY {
-      const u32 fetched = u32(end - first) / vtxSize;
-      const u32 unit = prim == GX_QUADS ? 4 : prim == GX_TRIANGLES ? 3 : prim == GX_LINES ? 2 : 1;
-      const u16 kept = static_cast<u16>(fetched - fetched % unit);
-      tailSkip.bytes = (vtxCount - kept) * vtxSize;
-      vtxCount = kept;
-      totalVtxBytes = kept * vtxSize;
-    }
-  }
   ++g_spmAudit[0];
   {  // NO100F: where the draw sits in its buffer (env NO100F_VTX_IDX, dump frame only)
     static const unsigned vtxIdx = [] { const char* e = std::getenv("NO100F_VTX_IDX"); return e ? unsigned(std::atoi(e)) : ~0u; }();

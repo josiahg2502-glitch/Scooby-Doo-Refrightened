@@ -37,7 +37,17 @@ PPC_NATIVE_OVERRIDE_VOID(800FCBDC, No100f_GXEnableBreakPt, (uint32_t breakPt), (
 // The game's own versions point the CPU FIFO at the list buffer, which the hooked GXSetCPUFifo cannot follow, so
 // the commands were executed instead of recorded and the size came out as garbage. Record the gather-pipe bytes
 // into the guest buffer as hardware does; GXCallDisplayList replays them through this parser.
+// Like the SDK, pending dirty state (__GXData->dirtyState, +0x4F4) is flushed to the main FIFO before recording starts.
+// The engine's list builder (0x8015E944) sizes each list for the draw alone and lays the vertex arrays out right
+// after it; state recorded at the list's GXBegin pushed the last indices into those arrays, which then overwrote them.
+extern "C" void func_800FE204(CpuContext* ctx);  // the game's __GXSetDirtyState
 extern "C" void No100f_GXBeginDisplayList(uint32_t list, uint32_t size) {
+    if (CpuContext* ctx = TryGetCpuContext()) {
+        uint32_t gx = 0, dirty = 0;
+        if (Memory::TryRead32(ctx->gpr[13] - 0x7DB8u, gx) && gx && Memory::TryRead32(gx + 0x4F4u, dirty) && dirty) {
+            func_800FE204(ctx);
+        }
+    }
     try { Memory::Write8(kDlFifoAddr + kDlWrapFlagOffset, 0); } catch (const Memory::AccessViolation&) {}
     BeginDisplayListRecording(list, size);
 }

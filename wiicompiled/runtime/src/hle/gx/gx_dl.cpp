@@ -1132,8 +1132,12 @@ static void ApplyAuroraVtxDesc() {
         // GXGetVtxDesc only decodes GX_VA_PNMTXIDX..GX_VA_TEX7; the XF array
         // pseudo-attributes above GX_VA_TEX7 have no CP descriptor bits, so
         // probing them would always report GX_NONE and republish a no-op.
-        if (!needsPublish && !IsMatrixIndexAttr(gxAttr) && gxAttr <= GX_VA_TEX7 &&
-            (type == GX_INDEX8 || type == GX_INDEX16)) {
+        // Every attribute is checked, not just indexed ones: the game's own VCD
+        // writes reach aurora's decoder without touching its API shadow, and the
+        // next dirty flush re-sends the whole shadow. A stale GX_DIRECT left there
+        // by an earlier draw (TEX0 on the i004 ghosts) widened the vertex and
+        // scrambled the mesh.
+        if (!needsPublish && gxAttr <= GX_VA_TEX7) {
             needsPublish = !AuroraVtxDescMatchesLive(gxAttr, type);
         }
         if (needsPublish) {
