@@ -666,11 +666,16 @@ public:
             m_current = m_start;
             m_reads_stopped = true;
             if (m_pb->audio_addr.looping) {
-                m_pred_scale = m_pb->adpcm_loop_info.pred_scale & 0x7f;
                 if (m_pb->is_stream != 1) {
+                    m_pred_scale = m_pb->adpcm_loop_info.pred_scale & 0x7f;
                     m_yn1 = static_cast<int16_t>(m_pb->adpcm_loop_info.yn1);
                     SetYn2(static_cast<int16_t>(m_pb->adpcm_loop_info.yn2));
                 } else {
+                    // A stream's ring buffer is refilled with new data, so the PB's loop predictor/scale goes stale (Night of
+                    // 100 Frights never sets it: always 0) and the first block after each wrap decoded wrong - a crack in the
+                    // music every wrap. Take it from the header of the block at the loop address, as the data says.
+                    m_pred_scale = (m_format & 0xcu) == 0 ? ReadAram8((m_start & ~15u) >> 1) & 0x7f
+                                                          : m_pb->adpcm_loop_info.pred_scale & 0x7f;
                     SetYn2(m_yn2);
                     CountStreamLoop(*m_pb);
                 }
