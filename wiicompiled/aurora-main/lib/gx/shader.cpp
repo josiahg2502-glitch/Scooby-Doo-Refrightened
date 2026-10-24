@@ -971,6 +971,9 @@ wgpu::ShaderModule build_shader(const ShaderConfig& config) noexcept {
       : "\nfn load_word(p: ptr<storage, array<u32>>, word_idx: u32) -> u32 {\n  return p[word_idx];\n}\n";
   std::string uniBufAttrs;
   std::string texBindings;
+  // Varyings use centroid sampling: with MSAA, an edge pixel whose centre lies outside the triangle would otherwise
+  // extrapolate colors/UVs past the vertices, leaving bright dotted outlines on additive light shafts (issue #9).
+  // Same as Dolphin's MSAA path; a no-op without MSAA.
   std::string vtxOutAttrs;
   std::string vtxInAttrs;
   std::string vtxXfrAttrsPre;
@@ -1188,8 +1191,8 @@ wgpu::ShaderModule build_shader(const ShaderConfig& config) noexcept {
         "    dist_att: vec3f,\n"
         "};";
     if (UsePerPixelLighting) {
-      vtxOutAttrs += fmt::format("\n    @location({}) mv_pos: vec3f,", vtxOutIdx++);
-      vtxOutAttrs += fmt::format("\n    @location({}) mv_nrm: vec3f,", vtxOutIdx++);
+      vtxOutAttrs += fmt::format("\n    @location({}) @interpolate(perspective, centroid) mv_pos: vec3f,", vtxOutIdx++);
+      vtxOutAttrs += fmt::format("\n    @location({}) @interpolate(perspective, centroid) mv_nrm: vec3f,", vtxOutIdx++);
       vtxXfrAttrs += fmt::format(FMT_STRING(R"""(
     out.mv_pos = mv_pos;
     out.mv_nrm = mv_nrm;)"""));
@@ -1220,7 +1223,7 @@ wgpu::ShaderModule build_shader(const ShaderConfig& config) noexcept {
     if (UsePerPixelLighting) {
       if ((cc.lightingEnabled && cc.ambSrc == GX_SRC_VTX) || cc.matSrc == GX_SRC_VTX ||
           (cca.lightingEnabled && cca.ambSrc == GX_SRC_VTX) || cca.matSrc == GX_SRC_VTX) {
-        vtxOutAttrs += fmt::format("\n    @location({}) clr{}: vec4f,", vtxOutIdx++, i);
+        vtxOutAttrs += fmt::format("\n    @location({}) @interpolate(perspective, centroid) clr{}: vec4f,", vtxOutIdx++, i);
         vtxXfrAttrs += fmt::format("\n    out.clr{} = {};", i, vertex_color_attr(config, i));
       }
     }
@@ -1230,7 +1233,7 @@ wgpu::ShaderModule build_shader(const ShaderConfig& config) noexcept {
       fragmentFnPre += lighting_func(config, cc, i, false);
       fragmentFnPre += lighting_func(config, cca, i, true);
     } else {
-      vtxOutAttrs += fmt::format("\n    @location({}) cc{}: vec4f,", vtxOutIdx++, i);
+      vtxOutAttrs += fmt::format("\n    @location({}) @interpolate(perspective, centroid) cc{}: vec4f,", vtxOutIdx++, i);
       vtxXfrAttrs += lighting_func(config, cc, i, false);
       vtxXfrAttrs += lighting_func(config, cca, i, true);
       fragmentFnPre += fmt::format("\n    var rast{0} = in.cc{0};", i);
@@ -1247,9 +1250,9 @@ wgpu::ShaderModule build_shader(const ShaderConfig& config) noexcept {
     }
     const auto& tcg = config.tcgs[i];
     if (tcg.type == GX_TG_MTX3x4) {
-      vtxOutAttrs += fmt::format("\n    @location({}) tex{}_uvw: vec3f,", vtxOutIdx++, i);
+      vtxOutAttrs += fmt::format("\n    @location({}) @interpolate(perspective, centroid) tex{}_uvw: vec3f,", vtxOutIdx++, i);
     } else {
-      vtxOutAttrs += fmt::format("\n    @location({}) tex{}_uv: vec2f,", vtxOutIdx++, i);
+      vtxOutAttrs += fmt::format("\n    @location({}) @interpolate(perspective, centroid) tex{}_uv: vec2f,", vtxOutIdx++, i);
     }
     if (tcg.src >= GX_TG_TEX0 && tcg.src <= GX_TG_TEX7) {
       vtxXfrAttrs += fmt::format("\n    var tc{} = vec4f({}, 1.0, 1.0);", i,
