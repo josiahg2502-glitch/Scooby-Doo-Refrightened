@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <stdexcept>
 #include <limits>
 
@@ -45,6 +46,29 @@ uint32_t g_reservationAddr = 0;
 bool g_hasReservation = false;
 const auto g_timeBaseStart = std::chrono::steady_clock::now();
 
+// The time base starts at the local date and time as ticks since 2000-01-01, as the GameCube IPL sets it from the RTC,
+// so the game's calendar (OSTicksToCalendarTime) reads today. From 0 it read Jan 1 2000, and the hubs fired New Year's
+// fireworks every time.
+const uint64_t g_timeBaseEpoch = [] {
+    const std::time_t now = std::time(nullptr);
+    std::tm local{};
+#ifdef _WIN32
+    localtime_s(&local, &now);
+#else
+    localtime_r(&now, &local);
+#endif
+    // Days since 2000-01-01 (civil-from-days inverse, proleptic Gregorian).
+    const int y = local.tm_year + 1900 - (local.tm_mon < 2);
+    const int era = y / 400;
+    const int yoe = y - era * 400;
+    const int mp = (local.tm_mon + 10) % 12;  // March = 0
+    const int doy = (153 * mp + 2) / 5 + local.tm_mday - 1;
+    const int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    const int64_t days = int64_t{era} * 146097 + doe - 730425;  // 730425 = days from 0000-03-01 to 2000-01-01
+    const int64_t secs = days * 86400 + local.tm_hour * 3600 + local.tm_min * 60 + local.tm_sec;
+    return secs > 0 ? static_cast<uint64_t>(secs) * TimeBaseContract::kTicksPerSecond : uint64_t{0};
+}();
+
 uint64_t GetTimeBase() {
     if (DetClock::Enabled()) {
         return DetClock::Now();
@@ -52,7 +76,7 @@ uint64_t GetTimeBase() {
     const auto elapsed = std::chrono::steady_clock::now() - g_timeBaseStart;
     const auto nanoseconds =
         std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
-    return TimeBaseContract::NanosecondsToTicks(static_cast<uint64_t>(nanoseconds));
+    return g_timeBaseEpoch + TimeBaseContract::NanosecondsToTicks(static_cast<uint64_t>(nanoseconds));
 }
 
 constexpr uint32_t kFpscrFx = 1u << 31;
