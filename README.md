@@ -72,8 +72,7 @@ The identity atlas and unchanged A/Y quadrants are preserved. This route needs n
 nor an HD pack and does not supply original Xbox or White/Black artwork. The default CC0 SVG-art
 route still needs ImageMagick and a locally supplied atlas/HD-pack layout. The door B prompt was
 physically verified; the helmet tutorial's text and original Xbox artwork were not independently
-verified. The combined HD alpha change includes [PR #22](https://github.com/josiahg2502-glitch/Scooby-Doo-Refrightened/pull/22);
-its actual HD-pack rendering remains unverified without that pack.
+verified.
 
 ![The launcher](docs/launcher.png)
 

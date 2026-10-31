@@ -13,14 +13,16 @@ icons = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(icons)
 
 
-def sample_atlas():
-    image = Image.new("RGBA", (64, 64))
+def sample_atlas(size=64):
+    image = Image.new("RGBA", (size, size))
     draw = ImageDraw.Draw(image)
+    half, padding = size // 2, size // 8
     for (x, y), color in zip(
-        ((0, 0), (32, 0), (0, 32), (32, 32)),
+        ((0, 0), (half, 0), (0, half), (half, half)),
         ((255, 255, 0), (128, 128, 128), (0, 255, 0), (255, 0, 0)),
     ):
-        draw.rectangle((x + 8, y + 8, x + 23, y + 23), fill=(*color, 255))
+        draw.rectangle((x + padding, y + padding, x + half - padding - 1, y + half - padding - 1),
+                       fill=(*color, 255))
     return image
 
 
@@ -43,15 +45,19 @@ class ButtonIconTests(unittest.TestCase):
         self.assertEqual(len(mappings), 256)
 
     def test_reuse_preserves_identity_and_unchanged_quadrants(self):
-        base = sample_atlas()
-        boxes = icons.regions(base)
-        identity = icons.remap_atlas(base, boxes, dict(zip("ABXY", "ABXY")))
-        self.assertEqual(identity.tobytes(), base.tobytes())
-        swapped = icons.remap_atlas(base, boxes, dict(zip("ABXY", "AXBY")))
-        for slot in "AY":
-            self.assertEqual(swapped.crop(boxes[slot]).tobytes(), base.crop(boxes[slot]).tobytes())
-        for slot, physical in (("X", "B"), ("B", "X")):
-            self.assertEqual(swapped.crop(boxes[slot]).tobytes(), base.crop(boxes[physical]).tobytes())
+        for size in (64, 256, 1024):
+            with self.subTest(size=size):
+                base = sample_atlas(size)
+                boxes = icons.regions(base)
+                identity = icons.remap_atlas(base, boxes, dict(zip("ABXY", "ABXY")))
+                self.assertEqual(identity.tobytes(), base.tobytes())
+                swapped = icons.remap_atlas(base, boxes, dict(zip("ABXY", "AXBY")))
+                self.assertEqual(swapped.size, base.size)
+                half = size // 2
+                for quadrant in ((0, 0, half, half), (0, half, half, size)):
+                    self.assertEqual(swapped.crop(quadrant).tobytes(), base.crop(quadrant).tobytes())
+                for slot, physical in (("X", "B"), ("B", "X")):
+                    self.assertEqual(swapped.crop(boxes[slot]).tobytes(), base.crop(boxes[physical]).tobytes())
 
     def test_local_cli_needs_no_art_pack_or_imagemagick(self):
         with tempfile.TemporaryDirectory() as directory:
