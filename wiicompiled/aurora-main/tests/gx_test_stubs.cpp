@@ -85,6 +85,10 @@ GraphicsConfig g_graphicsConfig{};
 
 // --- GXState (the real instance -- tests validate this) ---
 namespace aurora::gx {
+// The FIFO harness does not provide HD replacement textures.
+bool needs_replacement_alpha_cutoff(const ShaderInfo&) noexcept { return false; }
+void apply_replacement_alpha_cutoff(PipelineConfig&) noexcept {}
+
 GXState g_gxState{};
 void notify_copy_texture_created() noexcept {}
 } // namespace aurora::gx

@@ -50,15 +50,30 @@ gameplay B interaction and X head smash remain unchanged.
 Held B/X inputs must be released before triggering another action across menu entry or exit.
 Button-icon packs in `data\UserData\button_icons` follow player one's assigned
 controller and primary face-button bindings, including menu-only translations.
-They work with HD textures disabled. Custom face remaps select matching packs;
-unsupported non-face primary
-bindings retain stock artwork and report the limitation in the runtime log.
+They work with HD textures disabled. Custom face remaps select matching packs.
+Unsupported non-face primary bindings retain stock artwork and report the limitation in the runtime log.
 The F10 page also lets you rebind Black/White; **GameCube**, **Classic Controller Pro**, or **PlayStation**
 presets disable the Xbox-specific action bridge. Applying replaces shared gamepad button bindings;
 keyboard bindings, right-stick configuration, and custom additive expressions are kept. Conflicting custom
 expressions can still add other actions. Back and stick clicks are not assigned undocumented Xbox actions.
 Newly generated button-icon packs include the action-correct swapped B/X prompts for this layout;
 older icon packs need regeneration with `tools\make-button-icons.py`.
+
+For the temporary GameCube-art label correction, install Python and Pillow and supply your own
+locally decoded RGBA prompt atlas (`tex1_64x64_f05a599cb8feb028_14.png`, with Y/X above A/B).
+The atlas is not included; obtain it from your own supported GameCube data, for example using the
+runtime's texture dump and a local DDS-to-PNG conversion. Generate the packs locally:
+
+```powershell
+python tools\make-button-icons.py --atlas "C:\local\prompt-atlas.png" --reuse-atlas --families xbox --all-bindings --out "C:\game\data\UserData\button_icons"
+```
+
+The identity atlas and unchanged A/Y quadrants are preserved. This route needs neither ImageMagick
+nor an HD pack and does not supply original Xbox or White/Black artwork. The default CC0 SVG-art
+route still needs ImageMagick and a locally supplied atlas/HD-pack layout. The door B prompt was
+physically verified; the helmet tutorial's text and original Xbox artwork were not independently
+verified. The combined HD alpha change includes [PR #22](https://github.com/josiahg2502-glitch/Scooby-Doo-Refrightened/pull/22);
+its actual HD-pack rendering remains unverified without that pack.
 
 ![The launcher](docs/launcher.png)
 
