@@ -44,6 +44,8 @@ Apply **Xbox-original layout** on the launcher's **Controls** page before starti
 **F10 > Controller > Presets** while playing. Nothing changes until you apply it. A jumps, B digs/enters/talks,
 X performs head smash, Y opens the on-screen display, LT fires gum, RT runs, RB sneaks (Black), and LB fires
 soap bubbles (White). Left stick/D-pad move; Start pauses. Bumpers remain independent of the triggers.
+In the Warp Gate menu, A chooses and B exits; gameplay B interaction and X head smash remain unchanged.
+Held B/X inputs must be released before triggering another action across menu entry or exit.
 The F10 page also lets you rebind Black/White; **GameCube**, **Classic Controller Pro**, or **PlayStation**
 presets disable the Xbox-specific action bridge. Applying replaces shared gamepad button bindings;
 keyboard bindings, right-stick configuration, and custom additive expressions are kept. Conflicting custom

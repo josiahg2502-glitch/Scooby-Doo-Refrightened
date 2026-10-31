@@ -1,4 +1,5 @@
 #include "hle/no100f_xbox_layout.h"
+#include "hle/no100f_warp_controls.h"
 #include <cassert>
 #include <cstdint>
 #include <string_view>
@@ -14,6 +15,26 @@ void No100f_ApplyXboxPadActions(CpuContext* ctx, uint32_t pad, uint32_t buttons)
 }
 
 int main() {
+    using No100fWarpControls::SwapFaces;
+    for (unsigned value = 0; value <= 0xffff; ++value) {
+        assert(SwapFaces(SwapFaces(value)) == value);
+        assert((SwapFaces(value) & ~0x0600) == (value & ~0x0600));
+    }
+    No100fWarpControls::State warp;
+    assert(warp.Filter(0x0400, true, false, false, 1) == 0x0400);
+    assert(warp.Filter(0x0400, true, true, false, 1) == 0);
+    assert(warp.Filter(0, true, true, false, 1) == 0);
+    assert(warp.Filter(0x0400, true, true, false, 1) == 0x0200);
+    assert(warp.Filter(0x0400, true, false, false, 1) == 0);
+    assert(warp.Filter(0, true, false, false, 1) == 0);
+    assert(warp.Filter(0x0200, true, false, false, 1) == 0x0200);
+    assert(warp.Filter(0x0200, false, true, false, 1) == 0x0200);
+    assert(warp.Filter(0x0400, true, true, false, 2) == 0);
+    assert(warp.Filter(0, true, true, false, 2) == 0);
+    assert(warp.Filter(0x0200, true, true, true, 2) == 0);
+    assert(warp.Filter(0x0200, true, true, false, 2) == 0);
+    assert(warp.Filter(0, true, true, false, 2) == 0);
+    assert(warp.Filter(0x0200, true, true, false, 2) == 0x0400);
     using namespace No100fXboxLayout;
     assert(std::string_view(kBindings[0]) == "south");
     assert(std::string_view(kBindings[1]) == "west");

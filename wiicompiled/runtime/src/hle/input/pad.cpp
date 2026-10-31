@@ -2,6 +2,7 @@
 #include "memory.h"
 #include "hle/controller_status_contract.h"
 #include "hle/no100f_xbox_layout.h"
+#include "hle/no100f_warp_controls.h"
 #include "runtime_config.h"
 #include "input_bindings.h"
 #include "wii_remote_input.h"
@@ -23,6 +24,18 @@
 namespace {
 
 std::atomic<bool> g_rumbleEnabled{true};
+
+bool XboxWarpMenu() {
+    return RuntimeConfigFile::XboxOriginalLayout() &&
+        Memory::Read32(No100fWarpControls::kModeAddress) == No100fWarpControls::kWarpMode;
+}
+
+u16 FilterGamepadButtons(u32 port, u32 device, u16 buttons, BOOL blocked) {
+    static std::array<No100fWarpControls::State, PAD_CHANMAX> states;
+    if (port >= states.size()) return buttons;
+    return states[port].Filter(buttons, RuntimeConfigFile::XboxOriginalLayout(),
+                              XboxWarpMenu(), blocked != FALSE, device);
+}
 
 bool NativeButtonHeld(SDL_Gamepad* gamepad, uint32_t nativeButton) {
     if (gamepad == nullptr || nativeButton == PAD_NATIVE_BUTTON_INVALID ||
@@ -117,7 +130,7 @@ extern "C" uint32_t PAD__Read_HLE(uint32_t statusPtr)
     PADStatus statuses[PAD_CHANMAX]{};
     // Keep looking for a Bluetooth Wii Remote that dropped out (or was turned on late).
     WiiRemoteInput::Poll();
-    uint32_t rumbleMask = PADRead(statuses);
+    uint32_t rumbleMask = PADReadWithGamepadButtonFilter(statuses, FilterGamepadButtons);
     // Wii Remotes reach the game through KPAD, not as GameCube pads. This also
     // applies while input is blocked (overlay open) so the port does not flip
     // between "connected" and "no controller" every time the overlay toggles.
