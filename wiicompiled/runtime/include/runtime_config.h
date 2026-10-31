@@ -103,6 +103,8 @@ struct RuntimeUserConfig {
     // comma-separated SDL-style physical button names ("south", or
     // "dpad_up,left_shoulder") as values; pressing either bound button counts.
     std::array<std::optional<std::string>, 12> controllerButtons;
+    std::optional<std::string> controllerLayout;
+    std::array<std::optional<std::string>, 2> xboxButtons;
     std::optional<bool> rumbleEnabled;
     std::optional<int32_t> muteHotkey;
     std::map<std::string, std::string> controllerExpressions;
@@ -518,6 +520,14 @@ inline RuntimeUserConfig ParseConfigDocument(const toml::value& document) {
     }
 
     config.rumbleEnabled = FindConfigValue<bool>(document, "controller", "rumble");
+    config.controllerLayout = FindConfigValue<std::string>(document, "controller", "layout");
+    if (config.controllerLayout && *config.controllerLayout != "gamecube" &&
+        *config.controllerLayout != "xbox_original") {
+        RT_LOG(RT_TAG_CONFIG) << "Unknown controller layout '" << *config.controllerLayout
+                             << "'; using GameCube input translation\n";
+    }
+    config.xboxButtons[0] = FindConfigValue<std::string>(document, "controller", "xbox_black");
+    config.xboxButtons[1] = FindConfigValue<std::string>(document, "controller", "xbox_white");
     if (auto value = FindConfigInt(document, "audio", "mute_key")) {
         config.muteHotkey = *value;
     }
@@ -881,6 +891,25 @@ inline bool SetControllerButton(size_t index, std::string value) {
     }
     Mutable().controllerButtons[index] = value;
     return WriteSetting("controller", kControllerButtonKeys[index], FormatString(value));
+}
+
+inline bool XboxOriginalLayout() {
+    const auto& layout = Get().controllerLayout;
+    return layout && *layout == "xbox_original";
+}
+
+inline bool SetControllerLayout(std::string value) {
+    Mutable().controllerLayout = value;
+    return WriteSetting("controller", "layout", FormatString(value));
+}
+
+inline std::string XboxButton(size_t index) {
+    return Get().xboxButtons[index].value_or(index == 0 ? "right_shoulder" : "left_shoulder");
+}
+
+inline bool SetXboxButton(size_t index, const std::string& value) {
+    Mutable().xboxButtons[index] = value;
+    return WriteSetting("controller", index == 0 ? "xbox_black" : "xbox_white", FormatString(value));
 }
 
 inline std::string ControllerExpression(const std::string& key) {

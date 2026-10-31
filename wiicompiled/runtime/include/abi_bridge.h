@@ -20,6 +20,8 @@
 
 inline void InvokeIndirectCpu(uint32_t target, CpuContext* ctx);
 
+#include "hle/no100f_xbox_pad_call.h"
+
 // Some game-facing runtime options alter arguments at well-defined ABI
 // boundaries. Keep this independent of the dispatch mechanism: generated
 // static calls deliberately bypass InvokeDirectCpu for performance.
@@ -551,6 +553,7 @@ inline void InvokeDirectCpu(CpuContext* ctx) {
     static_assert(Target != 0, "InvokeDirectCpu cannot target address 0");
     CpuContext* cpu = ctx ? ctx : &GetPersistentCpuContext();
     ApplyRuntimeCallOptions(Target, cpu);
+    No100fXboxPadCall xboxPadCall(Target, cpu);
     if constexpr (KnownNativeCpuCall<Target>::kAvailable) {
         const auto invokeKnownNative = [&]() {
             PpcNonvolatileGprGuard gprGuard(cpu);
@@ -600,6 +603,7 @@ inline void InvokeIndirectJump(uint32_t target, CpuContext* ctx) {
     // This is essential for tail calls via bctr where the 'this' pointer (r3)
     // must be passed correctly to the target function.
     CpuContext* cpu = ctx ? ctx : &GetPersistentCpuContext();
+    No100fXboxPadCall xboxPadCall(target, cpu);
     if (TryDispatchRawCpuTarget(TranslatedFunctionRegistry::FindRawByAddressPtr(target), cpu)) {
         return;
     }
@@ -648,6 +652,7 @@ inline void InvokeIndirectCpu(uint32_t target, CpuContext* ctx) {
         ReportMissingCpuTarget(target, cpu);
     }
     ApplyRuntimeCallOptions(target, cpu);
+    No100fXboxPadCall xboxPadCall(target, cpu);
     if (TryDispatchRawCpuTarget(TranslatedFunctionRegistry::FindRawByAddressPtr(target), cpu)) {
         return;
     }

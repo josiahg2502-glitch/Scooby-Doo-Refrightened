@@ -1,6 +1,8 @@
 #include "hle_stubs.h"
 #include "memory.h"
 #include "hle/controller_status_contract.h"
+#include "hle/no100f_xbox_layout.h"
+#include "runtime_config.h"
 #include "input_bindings.h"
 #include "wii_remote_input.h"
 #include "runtime_log.h"
@@ -134,6 +136,7 @@ extern "C" uint32_t PAD__Read_HLE(uint32_t statusPtr)
             }
             SDL_free(ids);
         }
+        if (RuntimeConfigFile::XboxOriginalLayout() && style >= 0) style += 3;
         aurora_set_button_icon_style(style);
     }
     FillTriggersHeldByButtons(statuses);
@@ -146,6 +149,10 @@ extern "C" uint32_t PAD__Read_HLE(uint32_t statusPtr)
 
     try {
         for (uint32_t i = 0; i < PAD_CHANMAX; ++i) {
+            if (RuntimeConfigFile::XboxOriginalLayout()) {
+                statuses[i].triggerL = No100fXboxLayout::Trigger(statuses[i].triggerL);
+                statuses[i].triggerR = No100fXboxLayout::Trigger(statuses[i].triggerR);
+            }
             WritePadStatus(statusPtr + static_cast<uint32_t>(i * PadStatusContract::kGuestStatusSize),
                            statuses[i]);
         }

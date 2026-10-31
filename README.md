@@ -19,6 +19,7 @@ program, so there is no CPU emulator; the console's graphics, audio and system c
 - Restored Creeper window animation in Mystic Manor's Mystery Machine courtyard
 - Built-in HD texture pack (can be switched off)
 - Gamepads and keyboard, remappable; button prompts match your Xbox, PlayStation or Nintendo controller
+- Optional original-Xbox controls, with Black on RB and White on LB
 - GameCube memory-card saves
 - Option to skip the intro movies; mods that replace game files or textures
 
@@ -38,6 +39,17 @@ Requires Windows 10/11 (64-bit) and **Night of 100 Frights, GameCube USA v1.01 (
 
 Settings are on the launcher's **Display** page and in game (**F10**). **F11** toggles fullscreen. Saves, settings
 and mods live in `data\UserData`; unzip a new release over the old folder to update.
+
+Apply **Xbox-original layout** on the launcher's **Controls** page before starting, or select it in
+**F10 > Controller > Presets** while playing. Nothing changes until you apply it. A jumps, B digs/enters/talks,
+X performs head smash, Y opens the on-screen display, LT fires gum, RT runs, RB sneaks (Black), and LB fires
+soap bubbles (White). Left stick/D-pad move; Start pauses. Bumpers remain independent of the triggers.
+The F10 page also lets you rebind Black/White; **GameCube**, **Classic Controller Pro**, or **PlayStation**
+presets disable the Xbox-specific action bridge. Applying replaces shared gamepad button bindings;
+keyboard bindings, right-stick configuration, and custom additive expressions are kept. Conflicting custom
+expressions can still add other actions. Back and stick clicks are not assigned undocumented Xbox actions.
+Newly generated button-icon packs include the action-correct swapped B/X prompts for this layout;
+older icon packs need regeneration with `tools\make-button-icons.py`.
 
 ![The launcher](docs/launcher.png)
 

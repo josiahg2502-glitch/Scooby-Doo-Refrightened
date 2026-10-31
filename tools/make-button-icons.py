@@ -4,6 +4,7 @@ The game's GameCube button picture (one atlas: Y, X, A, B) is redrawn with the m
 Prompts (CC0, tools/button-art), each in its own spot so the game's texture coordinates still pick the right one, and
 saved at the HD pack's size under the game texture's name. Aurora loads the set for the controller in use
 (texture_replacement.cpp, hle/input/pad.cpp). GameCube buttons map by position: A south, B east, X west, Y north.
+Xbox-original variants swap B/X prompts to match the original game's actions.
 
     python tools/make-button-icons.py [--out Play/UserData/button_icons]
 Needs ImageMagick (magick) to render the SVGs, and the HD pack in texture_pack/ScoobyHD for the layout.
@@ -24,6 +25,13 @@ STYLES = {
                     "X": "playstation_button_color_square", "Y": "playstation_button_color_triangle"},
     "nintendo": {"A": "switch_button_b", "B": "switch_button_a", "X": "switch_button_y", "Y": "switch_button_x"},
 }
+
+def style_variants():
+    styles = dict(STYLES)
+    for style, buttons in STYLES.items():
+        variant = "xbox_original" if style == "xbox" else style + "_xbox"
+        styles[variant] = dict(buttons, B=buttons["X"], X=buttons["B"])
+    return styles
 
 
 def regions(img):
@@ -59,11 +67,12 @@ def main():
     base = Image.open(os.path.join(ROOT, "texture_pack", "ScoobyHD", ATLAS)).convert("RGBA")
     boxes = regions(base)
     with tempfile.TemporaryDirectory() as tmp:
-        for style, buttons in STYLES.items():
+        for style, buttons in style_variants().items():
             atlas = Image.new("RGBA", base.size, (0, 0, 0, 0))
             for name, (x0, y0, x1, y1) in boxes.items():
                 size = min(x1 - x0, y1 - y0)
-                icon = render_svg(os.path.join(ART, style, buttons[name] + ".svg"), size, tmp, style == "nintendo")
+                source = style.split("_", 1)[0]
+                icon = render_svg(os.path.join(ART, source, buttons[name] + ".svg"), size, tmp, source == "nintendo")
                 atlas.alpha_composite(icon, ((x0 + x1 - icon.width) // 2, (y0 + y1 - icon.height) // 2))
             os.makedirs(os.path.join(a.out, style), exist_ok=True)
             atlas.save(os.path.join(a.out, style, ATLAS))

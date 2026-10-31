@@ -71,8 +71,9 @@ struct ReplacementIndexEntry {
 
 absl::flat_hash_map<RuntimeTextureKey, ReplacementIndexEntry> s_replacementIndex;
 // <UserData>/button_icons/<style>: button prompts for the controller in use, looked up before everything else.
-constexpr const char* kButtonIconStyles[] = {"xbox", "playstation", "nintendo"};
-std::array<absl::flat_hash_map<RuntimeTextureKey, ReplacementIndexEntry>, 3> s_buttonIconIndex;
+constexpr const char* kButtonIconStyles[] = {
+    "xbox", "playstation", "nintendo", "xbox_original", "playstation_xbox", "nintendo_xbox"};
+std::array<absl::flat_hash_map<RuntimeTextureKey, ReplacementIndexEntry>, 6> s_buttonIconIndex;
 std::atomic<int> s_buttonIconStyle{-1};
 std::atomic<bool> s_buttonIconStyleChanged{false};
 int s_appliedButtonIconStyle = -1;
@@ -837,7 +838,11 @@ std::optional<TextureHandle> find_replacement(const GXTexObj_& obj) noexcept {
 }
 
 void set_button_icon_style(int style) noexcept {
-  if (s_buttonIconForced >= 0) style = s_buttonIconForced;
+  if (s_buttonIconForced >= 0) {
+    const bool xboxLayout = style >= 3;
+    style = s_buttonIconForced;
+    if (xboxLayout && style < 3) style += 3;
+  }
   if (style < -1 || style >= static_cast<int>(s_buttonIconIndex.size())) style = -1;
   if (s_buttonIconStyle.exchange(style) != style) s_buttonIconStyleChanged.store(true);
 }
