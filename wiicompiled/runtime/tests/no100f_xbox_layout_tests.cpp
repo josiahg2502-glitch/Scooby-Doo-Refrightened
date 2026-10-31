@@ -15,6 +15,16 @@ void No100f_ApplyXboxPadActions(CpuContext* ctx, uint32_t pad, uint32_t buttons)
 }
 
 int main() {
+    for (uint32_t mode = 0; mode <= 12; ++mode) {
+        const bool menu = No100fWarpControls::UsesMenuFaces(mode);
+        assert(menu == (mode == 2 || mode == 7));
+        No100fWarpControls::State state;
+        state.Filter(0, true, menu, false, 1);
+        assert(state.Filter(0x0400, true, menu, false, 1) == (menu ? 0x0200 : 0x0400));
+        assert(state.Filter(0x0200, true, menu, false, 1) == (menu ? 0x0400 : 0x0200));
+        assert(state.Filter(0x0100, true, menu, false, 1) == 0x0100);
+        assert(state.Filter(0x0400, false, menu, false, 1) == 0x0400);
+    }
     using No100fWarpControls::SwapFaces;
     for (unsigned value = 0; value <= 0xffff; ++value) {
         assert(SwapFaces(SwapFaces(value)) == value);

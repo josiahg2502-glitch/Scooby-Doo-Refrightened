@@ -3,10 +3,15 @@
 #include <cstdint>
 
 namespace No100fWarpControls {
-// Pinned GIHE78: mode 7 is entered by event 0x9B; 0x9C is its confirmation state.
+// Pinned GIHE78: the title-menu loop checks mode 2; Warp uses mode 7.
 inline constexpr uint32_t kModeAddress = 0x80270E18;
+inline constexpr uint32_t kMainMenuMode = 2;
 inline constexpr uint32_t kWarpMode = 7;
 inline constexpr uint16_t kFaces = 0x0600;
+
+constexpr bool UsesMenuFaces(uint32_t mode) {
+    return mode == kMainMenuMode || mode == kWarpMode;
+}
 
 constexpr uint16_t SwapFaces(uint16_t buttons) {
     return static_cast<uint16_t>((buttons & ~kFaces) |

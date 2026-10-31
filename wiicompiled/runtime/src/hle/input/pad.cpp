@@ -25,16 +25,16 @@ namespace {
 
 std::atomic<bool> g_rumbleEnabled{true};
 
-bool XboxWarpMenu() {
+bool XboxMenu() {
     return RuntimeConfigFile::XboxOriginalLayout() &&
-        Memory::Read32(No100fWarpControls::kModeAddress) == No100fWarpControls::kWarpMode;
+        No100fWarpControls::UsesMenuFaces(Memory::Read32(No100fWarpControls::kModeAddress));
 }
 
 u16 FilterGamepadButtons(u32 port, u32 device, u16 buttons, BOOL blocked) {
     static std::array<No100fWarpControls::State, PAD_CHANMAX> states;
     if (port >= states.size()) return buttons;
     return states[port].Filter(buttons, RuntimeConfigFile::XboxOriginalLayout(),
-                              XboxWarpMenu(), blocked != FALSE, device);
+                              XboxMenu(), blocked != FALSE, device);
 }
 
 bool NativeButtonHeld(SDL_Gamepad* gamepad, uint32_t nativeButton) {
