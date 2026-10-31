@@ -3,14 +3,15 @@
 #include <cstdint>
 
 namespace No100fWarpControls {
-// Pinned GIHE78: the title-menu loop checks mode 2; Warp uses mode 7.
+// Pinned GIHE78: title/options use mode 2, Load Game mode 4, and Warp mode 7.
 inline constexpr uint32_t kModeAddress = 0x80270E18;
 inline constexpr uint32_t kMainMenuMode = 2;
+inline constexpr uint32_t kLoadMenuMode = 4;
 inline constexpr uint32_t kWarpMode = 7;
 inline constexpr uint16_t kFaces = 0x0600;
 
 constexpr bool UsesMenuFaces(uint32_t mode) {
-    return mode == kMainMenuMode || mode == kWarpMode;
+    return mode == kMainMenuMode || mode == kLoadMenuMode || mode == kWarpMode;
 }
 
 constexpr uint16_t SwapFaces(uint16_t buttons) {
