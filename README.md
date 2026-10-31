@@ -74,6 +74,25 @@ route still needs ImageMagick and a locally supplied atlas/HD-pack layout. The d
 physically verified; the helmet tutorial's text and original Xbox artwork were not independently
 verified.
 
+### Optional HD Creeper frames
+
+[Issue #24](https://github.com/josiahg2502-glitch/Scooby-Doo-Refrightened/issues/24)
+provides `CreeperHD.zip`: 16 PNGs at 384x384 for the restored 18-frame animation
+(frames 01, 09 and 10 share a texture). Extract the archive locally and add its
+PNGs to an existing full `texture_pack\ScoobyHD` before packaging, or to
+`data\UserData\texture_replacements\CreeperHD` in an existing game copy.
+Keep the supplied `README.txt` credits with the files. Enable **HD textures**
+to use them; with HD textures disabled, the retained GameCube frames are used.
+
+These optional files sharpen the window, including its roof/sill texture strips,
+without changing the animation timing or requiring an HD alpha-rendering fix.
+They are supplied by Loneranger419 and built on dogerki's ScoobyHD `owih0001`
+window artwork; see the issue and archive README for provenance. They are not
+original Xbox artwork or a complete ScoobyHD pack and are kept out of git, like
+the rest of `texture_pack`. For this Creeper-only enhancement, use the existing
+game-copy installation path above; the standard full-pack packaging route also
+requires its usual HD prompt atlas.
+
 ![The launcher](docs/launcher.png)
 
 ## Building
