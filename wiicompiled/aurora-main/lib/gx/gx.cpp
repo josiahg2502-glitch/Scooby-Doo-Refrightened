@@ -1154,17 +1154,17 @@ static void prune_idle_texture_caches() noexcept {
   }
 }
 
-void invalidate_static_texture_cache() noexcept {
+void invalidate_static_texture_cache(bool reloadTextures) noexcept {
   // Nothing has been marked reusable since the last bump, so every entry in every tier is already stale at the current revision.
-  if (s_textureCacheStamps == 0) {
+  if (s_textureCacheStamps == 0 && !reloadTextures) {
     return;
   }
 
   ++s_staticTextureCacheValidationRevision;
   s_textureCacheStamps = 0;
-  if (s_staticTextureCacheValidationRevision == 0) {
-    // Unreachable with a 64-bit counter, but if it ever wraps, no stamped revision may survive into the reused revision.
-    s_staticTextureCacheValidationRevision = 1;
+  // Replacement selection can change while the guest bytes stay identical.
+  if (s_staticTextureCacheValidationRevision == 0 || reloadTextures) {
+    if (s_staticTextureCacheValidationRevision == 0) s_staticTextureCacheValidationRevision = 1;
     s_textureObjectCaches.clear();
     s_tlutObjectCaches.clear();
     s_staticTextureSourceCache.clear();
@@ -1180,7 +1180,7 @@ void invalidate_static_texture_cache() noexcept {
     }
   }
 
-  // Everything else is revision-gated: the texture object memo, the TLUT textures (re-proved by palette digest), the static source front cache and the resolve identity cache all miss on the new revision without being torn down, so the bump costs one increment instead of dropping GPU textures and rebuilding hash tables.
+  // Ordinary guest invalidation only revalidates these caches; replacement changes above also drop their handles.
   s_lastTextureResolveIdentityValid.fill(false);
   s_lastNoCopyResolveRevision.fill(0);
   s_lastStaticSourceResolveKeyValid.fill(false);
@@ -1369,7 +1369,7 @@ GXState::CopyTextureRef* find_copy_texture_for_texobj(const GXTexObj_& obj) noex
 
 void resolve_sampled_textures(const ShaderInfo& info) noexcept {
   ZoneScoped;
-  if (gfx::texture_replacement::take_button_icon_style_change()) invalidate_static_texture_cache();
+  if (gfx::texture_replacement::take_button_icon_style_change()) invalidate_static_texture_cache(true);
 
   for (u32 i = 0; i < MaxTextures; ++i) {
     if (!info.sampledTextures.test(i)) {

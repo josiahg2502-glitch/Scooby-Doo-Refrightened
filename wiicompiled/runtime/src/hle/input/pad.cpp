@@ -9,6 +9,7 @@
 #include "runtime_log.h"
 
 #include <aurora/aurora.h>
+#include <aurora/button_icons.h>
 #include <SDL3/SDL_gamepad.h>
 
 #include <algorithm>
@@ -136,20 +137,38 @@ extern "C" uint32_t PAD__Read_HLE(uint32_t statusPtr)
     // between "connected" and "no controller" every time the overlay toggles.
     WiiRemoteInput::HideRemotesFromPad(statuses, PAD_CHANMAX);
 
-    // On-screen button prompts follow the first connected controller (UserData/button_icons, tools/make-button-icons.py).
-    if (static unsigned n = 0; n++ % 30 == 0) {
-        int count = 0, style = -1;
-        if (SDL_JoystickID* ids = SDL_GetGamepads(&count)) {
-            if (count > 0) switch (SDL_GetGamepadTypeForID(ids[0])) {
+    // Use player one's assigned controller and its applied primary mappings.
+    {
+        int family = -1, style = -1;
+        const s32 index = PADGetIndexForPort(0);
+        SDL_Gamepad* gamepad = index < 0 ? nullptr : PADGetSDLGamepadForIndex(static_cast<u32>(index));
+        if (gamepad != nullptr) {
+            switch (SDL_GetGamepadType(gamepad)) {
                 case SDL_GAMEPAD_TYPE_UNKNOWN: break;
-                case SDL_GAMEPAD_TYPE_PS3: case SDL_GAMEPAD_TYPE_PS4: case SDL_GAMEPAD_TYPE_PS5: style = 1; break;
+                case SDL_GAMEPAD_TYPE_PS3: case SDL_GAMEPAD_TYPE_PS4: case SDL_GAMEPAD_TYPE_PS5: family = 1; break;
                 case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO: case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT:
-                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT: case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR: style = 2; break;
-                default: style = 0; break;
+                case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT: case SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR: family = 2; break;
+                default: family = 0; break;
             }
-            SDL_free(ids);
+            static_assert(SDL_GAMEPAD_BUTTON_SOUTH == 0 && SDL_GAMEPAD_BUTTON_EAST == 1 &&
+                          SDL_GAMEPAD_BUTTON_WEST == 2 && SDL_GAMEPAD_BUTTON_NORTH == 3);
+            std::array<unsigned, 4> buttons{PAD_NATIVE_BUTTON_INVALID, PAD_NATIVE_BUTTON_INVALID,
+                                           PAD_NATIVE_BUTTON_INVALID, PAD_NATIVE_BUTTON_INVALID};
+            constexpr std::array<u16, 4> faces{PAD_BUTTON_A, PAD_BUTTON_B, PAD_BUTTON_X, PAD_BUTTON_Y};
+            u32 count = 0;
+            PADButtonMapping* mappings = PADGetButtonMappings(0, &count);
+            for (u32 i = 0; mappings != nullptr && i < count; ++i) {
+                for (unsigned face = 0; face < faces.size(); ++face) {
+                    if (mappings[i].padButton == faces[face]) buttons[face] = mappings[i].nativeButton;
+                }
+            }
+            if (XboxMenu()) std::swap(buttons[1], buttons[2]);
+            style = aurora::ButtonIcons::Style(family, buttons);
+            static bool unsupported = false;
+            if (family >= 0 && style < 0 && !unsupported)
+                RT_LOGF(RT_TAG_OS, "[pad] Face prompts require primary face-button bindings; retaining stock artwork.\n");
+            unsupported = family >= 0 && style < 0;
         }
-        if (RuntimeConfigFile::XboxOriginalLayout() && style >= 0) style += 3;
         aurora_set_button_icon_style(style);
     }
     FillTriggersHeldByButtons(statuses);

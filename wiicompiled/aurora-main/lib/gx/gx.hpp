@@ -484,7 +484,7 @@ std::vector<PatchTarget> find_patch_targets(const void* dest);
 void prune_copy_texture_pool(const void* dest) noexcept;
 void evict_texture_object(u32 texObjId) noexcept;
 void evict_tlut_object(u32 tlutObjId) noexcept;
-void invalidate_static_texture_cache() noexcept;
+void invalidate_static_texture_cache(bool reloadTextures = false) noexcept;
 Vec2<uint32_t> logical_fb_size() noexcept;
 MappedRenderState map_logical_render_state() noexcept;
 gfx::Viewport map_logical_viewport(const gfx::Viewport& logicalViewport) noexcept;

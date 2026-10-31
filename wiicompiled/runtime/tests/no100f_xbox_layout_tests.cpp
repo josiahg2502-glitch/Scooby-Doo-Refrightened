@@ -1,5 +1,6 @@
 #include "hle/no100f_xbox_layout.h"
 #include "hle/no100f_warp_controls.h"
+#include <aurora/button_icons.h>
 #include <cassert>
 #include <cstdint>
 #include <string_view>
@@ -15,6 +16,24 @@ void No100f_ApplyXboxPadActions(CpuContext* ctx, uint32_t pad, uint32_t buttons)
 }
 
 int main() {
+    using aurora::ButtonIcons::Style;
+    assert(Style(0, {0, 1, 2, 3}) == 0);
+    assert(Style(0, {0, 2, 1, 3}) == 3);
+    assert(Style(1, {0, 2, 1, 3}) == 4);
+    assert(Style(2, {0, 1, 2, 3}) == 2);
+    assert(Style(-1, {0, 1, 2, 3}) == -1);
+    assert(Style(0, {0, 1, 9, 3}) == -1);
+    for (unsigned mapping = 0; mapping < 256; ++mapping) {
+        const std::array<unsigned, 4> buttons{
+            mapping & 3, (mapping >> 2) & 3, (mapping >> 4) & 3, (mapping >> 6) & 3};
+        const int style = Style(0, buttons);
+        assert(style >= 0 && style < aurora::ButtonIcons::kStyleCount);
+        if (mapping != 0xE4 && mapping != 0xD8) {
+            std::string expected = "xbox_";
+            for (unsigned button : buttons) expected += "ABXY"[button];
+            assert(aurora::ButtonIcons::Name(style) == expected);
+        }
+    }
     for (uint32_t mode = 0; mode <= 12; ++mode) {
         const bool menu = No100fWarpControls::UsesMenuFaces(mode);
         assert(menu == (mode == 2 || mode == 4 || mode == 7));

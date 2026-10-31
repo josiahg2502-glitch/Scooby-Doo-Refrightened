@@ -10,6 +10,7 @@
 #include <absl/container/flat_hash_set.h>
 #include <fmt/format.h>
 #include <tracy/Tracy.hpp>
+#include <aurora/button_icons.h>
 
 #include <algorithm>
 #include <functional>
@@ -71,9 +72,8 @@ struct ReplacementIndexEntry {
 
 absl::flat_hash_map<RuntimeTextureKey, ReplacementIndexEntry> s_replacementIndex;
 // <UserData>/button_icons/<style>: button prompts for the controller in use, looked up before everything else.
-constexpr const char* kButtonIconStyles[] = {
-    "xbox", "playstation", "nintendo", "xbox_original", "playstation_xbox", "nintendo_xbox"};
-std::array<absl::flat_hash_map<RuntimeTextureKey, ReplacementIndexEntry>, 6> s_buttonIconIndex;
+std::array<absl::flat_hash_map<RuntimeTextureKey, ReplacementIndexEntry>,
+           ButtonIcons::kStyleCount> s_buttonIconIndex;
 std::atomic<int> s_buttonIconStyle{-1};
 std::atomic<bool> s_buttonIconStyleChanged{false};
 int s_appliedButtonIconStyle = -1;
@@ -512,89 +512,88 @@ void evict_replacement_cache_if_needed() noexcept {
 }
 
 void build_index() noexcept {
-  if (!g_config.allowTextureReplacements) {
-    return;
-  }
-
   auto userPath = fs_path_from_string(g_config.userPath);
   auto cachePath = fs_path_from_string(g_config.cachePath);
 
   s_replacementRoot = userPath / "texture_replacements";
   s_dumpRoot = cachePath / "texture_dumps";
 
-  if (!ensure_directory(s_replacementRoot)) {
-    return;
-  }
-  if (g_config.allowTextureDumps && !ensure_directory(s_dumpRoot)) {
-    return;
-  }
-
   std::error_code ec;
-  // New Super Paper Bros. mods: <UserData>/mods/<name>/textures (skipped when the mod folder holds a file
-  // named "disabled"). The user's own folder is indexed first and try_emplace keeps the first entry, so
-  // it wins over mods; among mods the alphabetically later one wins, like their disc file overrides.
-  std::vector<std::filesystem::path> roots{s_replacementRoot};
-  std::vector<std::filesystem::path> mods;
-  for (const auto& entry : std::filesystem::directory_iterator(userPath / "mods", ec)) {
-    if (entry.is_directory(ec) && !std::filesystem::exists(entry.path() / "disabled", ec) &&
-        std::filesystem::is_directory(entry.path() / "textures", ec)) {
-      mods.push_back(entry.path() / "textures");
+  if (g_config.allowTextureReplacements && ensure_directory(s_replacementRoot) &&
+      (!g_config.allowTextureDumps || ensure_directory(s_dumpRoot))) {
+    // New Super Paper Bros. mods: <UserData>/mods/<name>/textures (skipped when the mod folder holds a file
+    // named "disabled"). The user's own folder is indexed first and try_emplace keeps the first entry, so
+    // it wins over mods; among mods the alphabetically later one wins, like their disc file overrides.
+    std::vector<std::filesystem::path> roots{s_replacementRoot};
+    std::vector<std::filesystem::path> mods;
+    for (const auto& entry : std::filesystem::directory_iterator(userPath / "mods", ec)) {
+      if (entry.is_directory(ec) && !std::filesystem::exists(entry.path() / "disabled", ec) &&
+          std::filesystem::is_directory(entry.path() / "textures", ec)) {
+        mods.push_back(entry.path() / "textures");
+      }
     }
+    std::sort(mods.begin(), mods.end(), std::greater<>());
+    roots.insert(roots.end(), mods.begin(), mods.end());
+    ec.clear();
+    for (const auto& root : roots)
+      for (std::filesystem::recursive_directory_iterator it(
+               root,
+               std::filesystem::directory_options::skip_permission_denied |
+                   std::filesystem::directory_options::follow_directory_symlink,
+               ec);
+           it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
+        if (ec) {
+          break;
+        }
+
+        if (!it->is_regular_file()) {
+          continue;
+        }
+
+        const auto& path = it->path();
+
+        if (is_relative_to(path, s_dumpRoot)) {
+          continue;
+        }
+
+        if (!iequals_ascii(fs_path_to_string(path.extension()), ".dds") &&
+            !iequals_ascii(fs_path_to_string(path.extension()), ".png")) {
+          continue;
+        }
+
+        if (is_sidecar_mip(fs_path_to_string(path.stem()))) {
+          continue;
+        }
+
+        const auto parsed = parse_replacement_filename(fs_path_to_string(path.filename()));
+        if (!parsed.has_value()) {
+          continue;
+        }
+
+        s_replacementIndex.try_emplace(*parsed, path);
+      }
+
+    Log.info("Indexed {} texture replacements from {} folder(s) (texture_replacements + mods)",
+             s_replacementIndex.size(), roots.size());
   }
-  std::sort(mods.begin(), mods.end(), std::greater<>());
-  roots.insert(roots.end(), mods.begin(), mods.end());
   ec.clear();
-  for (const auto& root : roots)
-  for (std::filesystem::recursive_directory_iterator it(
-           root,
-           std::filesystem::directory_options::skip_permission_denied |
-               std::filesystem::directory_options::follow_directory_symlink,
-           ec);
-       it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
-    if (ec) {
-      break;
-    }
-
-    if (!it->is_regular_file()) {
-      continue;
-    }
-
-    const auto& path = it->path();
-
-    if (is_relative_to(path, s_dumpRoot)) {
-      continue;
-    }
-
-    if (!iequals_ascii(fs_path_to_string(path.extension()), ".dds") && !iequals_ascii(fs_path_to_string(path.extension()), ".png")) {
-      continue;
-    }
-
-    if (is_sidecar_mip(fs_path_to_string(path.stem()))) {
-      continue;
-    }
-
-    const auto parsed = parse_replacement_filename(fs_path_to_string(path.filename()));
-    if (!parsed.has_value()) {
-      continue;
-    }
-
-    s_replacementIndex.try_emplace(*parsed, path);
-  }
-
-  Log.info("Indexed {} texture replacements from {} folder(s) (texture_replacements + mods)", s_replacementIndex.size(), roots.size());
 
   for (size_t style = 0; style < s_buttonIconIndex.size(); ++style) {
-    for (const auto& entry : std::filesystem::directory_iterator(userPath / "button_icons" / kButtonIconStyles[style], ec)) {
-      if (const auto parsed = parse_replacement_filename(fs_path_to_string(entry.path().filename())); parsed.has_value())
+    const auto name = ButtonIcons::Name(static_cast<int>(style));
+    for (const auto& entry : std::filesystem::directory_iterator(userPath / "button_icons" / name, ec)) {
+      if (const auto parsed = parse_replacement_filename(fs_path_to_string(entry.path().filename()));
+          parsed.has_value())
         s_buttonIconIndex[style].try_emplace(*parsed, ReplacementIndexEntry{entry.path()});
     }
     ec.clear();
-    Log.info("Button icons '{}': {} textures", kButtonIconStyles[style], s_buttonIconIndex[style].size());
+    if (style < 6 || !s_buttonIconIndex[style].empty())
+      Log.info("Button icons '{}': {} textures", name, s_buttonIconIndex[style].size());
   }
   // BUTTON_ICONS=xbox|playstation|nintendo pins a set (tests: scripted input never reaches the gamepad code).
   if (const char* forced = std::getenv("BUTTON_ICONS")) {
     for (size_t style = 0; style < s_buttonIconIndex.size(); ++style)
-      if (std::string_view(forced) == kButtonIconStyles[style]) s_buttonIconForced = static_cast<int>(style);
+      if (std::string_view(forced) == ButtonIcons::Name(static_cast<int>(style)))
+        s_buttonIconForced = static_cast<int>(style);
     set_button_icon_style(s_buttonIconForced);
   }
 }
@@ -604,6 +603,7 @@ const ReplacementIndexEntry* find_replacement_path(const RuntimeTextureKey& key)
     const auto& icons = s_buttonIconIndex[s_appliedButtonIconStyle];
     if (const auto it = icons.find(key); it != icons.end()) return &it->second;
   }
+  if (!g_config.allowTextureReplacements) return nullptr;
   if (const auto it = s_replacementIndex.find(key); it != s_replacementIndex.end()) {
     return &it->second;
   }
@@ -670,6 +670,10 @@ gfx::TextureHandle load_replacement_texture(const RuntimeTextureKey& key, const 
                                                   replacement->format, replacement->mips, gfx::InvalidTextureFormat);
   handle->isReplacement = true;
   gfx::write_texture(*handle, replacement->data);
+  if (s_appliedButtonIconStyle >= 0 && s_buttonIconIndex[s_appliedButtonIconStyle].contains(key)) {
+    Log.info("Button icons loaded '{}': {}", ButtonIcons::Name(s_appliedButtonIconStyle),
+             fs_path_to_string(entry.path.filename()));
+  }
   return handle;
 }
 
@@ -743,7 +747,7 @@ void shutdown() noexcept {
 // Mirrors of the guest palettes, kept only so find_replacement can hash and the DDS dump decode a
 // CI palette. The renderer uploads from the guest pointer, so skip this work when replacement is off.
 void register_tlut(const GXTlutObj* obj, const void* data, GXTlutFmt format, uint16_t entries) noexcept {
-  if (!g_config.allowTextureReplacements) {
+  if (!g_config.allowTextureReplacements && s_appliedButtonIconStyle < 0) {
     return;
   }
   if (obj == nullptr || data == nullptr) {
@@ -771,7 +775,7 @@ void register_tlut(const GXTlutObj* obj, const void* data, GXTlutFmt format, uin
 }
 
 void load_tlut(const GXTlutObj* obj, uint32_t idx) noexcept {
-  if (!g_config.allowTextureReplacements) {
+  if (!g_config.allowTextureReplacements && s_appliedButtonIconStyle < 0) {
     return;
   }
   if (idx >= s_loadedTluts.size()) {
@@ -809,14 +813,14 @@ void load_tlut(const GXTlutObj* obj, uint32_t idx) noexcept {
 std::optional<TextureHandle> find_replacement(const GXTexObj_& obj) noexcept {
   ZoneScoped;
 
-  if (!g_config.allowTextureReplacements) {
+  if (!g_config.allowTextureReplacements && s_appliedButtonIconStyle < 0) {
     return std::nullopt;
   }
 
   const RuntimeTextureKey key = build_runtime_key(obj);
   const auto* path = find_replacement_path(key);
   if (path == nullptr) {
-    report_missing_key(key, obj);
+    if (g_config.allowTextureReplacements) report_missing_key(key, obj);
     return std::nullopt;
   }
 
@@ -839,9 +843,13 @@ std::optional<TextureHandle> find_replacement(const GXTexObj_& obj) noexcept {
 
 void set_button_icon_style(int style) noexcept {
   if (s_buttonIconForced >= 0) {
-    const bool xboxLayout = style >= 3;
-    style = s_buttonIconForced;
-    if (xboxLayout && style < 3) style += 3;
+    if (style >= 6 && s_buttonIconForced < 6) {
+      style = 6 + (s_buttonIconForced % 3) * 256 + (style - 6) % 256;
+    } else {
+      const bool xboxLayout = style >= 3 && style < 6;
+      style = s_buttonIconForced;
+      if (xboxLayout && style < 3) style += 3;
+    }
   }
   if (style < -1 || style >= static_cast<int>(s_buttonIconIndex.size())) style = -1;
   if (s_buttonIconStyle.exchange(style) != style) s_buttonIconStyleChanged.store(true);
@@ -853,6 +861,13 @@ int button_icon_style() noexcept { return s_buttonIconStyle.load(); }
 bool take_button_icon_style_change() noexcept {
   if (!s_buttonIconStyleChanged.exchange(false)) return false;
   s_appliedButtonIconStyle = s_buttonIconStyle.load();
+  if (s_appliedButtonIconStyle >= 0) {
+    const auto& icons = s_buttonIconIndex[s_appliedButtonIconStyle];
+    if (icons.empty())
+      Log.info("Button icons '{}': no pack installed; using stock artwork", ButtonIcons::Name(s_appliedButtonIconStyle));
+    else
+      Log.info("Button icons active '{}': {} textures", ButtonIcons::Name(s_appliedButtonIconStyle), icons.size());
+  }
   for (const auto& icons : s_buttonIconIndex) {
     for (const auto& [key, _] : icons) {
       if (const auto it = s_replacementCache.find(key); it != s_replacementCache.end()) {

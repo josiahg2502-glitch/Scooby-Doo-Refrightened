@@ -48,6 +48,11 @@ In the main menu, including Options and Load Game, B goes back.
 In the Warp Gate menu, A chooses and B exits;
 gameplay B interaction and X head smash remain unchanged.
 Held B/X inputs must be released before triggering another action across menu entry or exit.
+Button-icon packs in `data\UserData\button_icons` follow player one's assigned
+controller and primary face-button bindings, including menu-only translations.
+They work with HD textures disabled. Custom face remaps select matching packs;
+unsupported non-face primary
+bindings retain stock artwork and report the limitation in the runtime log.
 The F10 page also lets you rebind Black/White; **GameCube**, **Classic Controller Pro**, or **PlayStation**
 presets disable the Xbox-specific action bridge. Applying replaces shared gamepad button bindings;
 keyboard bindings, right-stick configuration, and custom additive expressions are kept. Conflicting custom
