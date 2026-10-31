@@ -16,12 +16,17 @@ program, so there is no CPU emulator; the console's graphics, audio and system c
 
 - Up to 4K, true widescreen (16:9, fill, cinematic 2.39:1) or original 4:3
 - 30 or 60 fps, MSAA anti-aliasing, HDR
+- Restored Creeper window animation in Mystic Manor's Mystery Machine courtyard
 - Built-in HD texture pack (can be switched off)
 - Gamepads and keyboard, remappable; button prompts match your Xbox, PlayStation or Nintendo controller
 - GameCube memory-card saves
 - Option to skip the intro movies; mods that replace game files or textures
 
 **No game data is included.** You need your own disc image.
+
+The courtyard animation reuses the retained GameCube textures and their original timing, keeping the
+GameCube window colors. No Xbox image or imported assets are needed; existing nonempty material-map mods
+are left unchanged.
 
 ## Playing
 
