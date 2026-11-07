@@ -1,5 +1,7 @@
 # Scooby-Doo: Refrightened
 
+> **Refrightened is no longer updated.** Development continues in **[FrightWorks](https://github.com/FrightWorks/FrightWorks-no100f)** by Loneranger419, which is based on Refrightened. Get the latest version there; it can bring over your Refrightened saves, settings and mods.
+
 A statically recompiled PC port of **Scooby-Doo! Night of 100 Frights** (GameCube, 2002). The game's PowerPC code is
 translated ahead of time to C++ with [WiiCompiled](https://github.com/patchzyy/Wiicompiled) and compiled into a Windows
 program, so there is no CPU emulator; the console's graphics, audio and system calls are reimplemented underneath.
