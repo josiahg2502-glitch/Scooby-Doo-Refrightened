@@ -120,7 +120,7 @@ void evict_tlut_object(u32 tlutObjId) noexcept {
     }
   }
 }
-void invalidate_static_texture_cache() noexcept {
+void invalidate_static_texture_cache(bool) noexcept {
   for (auto& texture : g_gxState.textures) {
     texture.reset();
   }

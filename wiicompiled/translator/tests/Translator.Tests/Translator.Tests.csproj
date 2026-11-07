@@ -27,6 +27,12 @@
     <ProjectReference Include="..\..\src\Translator.Core\Translator.Core.csproj" />
     <ProjectReference Include="..\..\src\Translator.Cli\Translator.Cli.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\..\launcher\GameConfig.cs" Link="Launcher\GameConfig.cs" />
+    <Compile Include="..\..\..\..\launcher\XboxControllerLayout.cs" Link="Launcher\XboxControllerLayout.cs" />
+    <Content Include="..\..\..\runtime\include\hle\no100f_xbox_layout.h"
+             Link="no100f_xbox_layout.h" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="TestAssets\RetroWfcPayload\binary\payload.RMCPD00.bin" CopyToOutputDirectory="PreserveNewest" />

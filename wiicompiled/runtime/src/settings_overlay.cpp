@@ -10,6 +10,7 @@ extern "C" uint8_t* aurora_load_png_rgba(const char* path, uint32_t* width, uint
 #include "audio_backend.h"
 #include "aurora_events.h"
 #include "controller_button_names.h"
+#include "hle/no100f_xbox_layout.h"
 #include "controller_mapping_wizard.h"
 #include "input_bindings.h"
 #include "game_graphics_options.h"
@@ -131,6 +132,7 @@ std::array<int32_t, PAD_MAX_CONTROLLERS> g_configuredControllerIndices = [] {
     indices.fill(std::numeric_limits<int32_t>::min());
     return indices;
 }();
+std::array<bool, PAD_MAX_CONTROLLERS> g_xboxWiiUOverrides{};
 
 using ControllerNames::kNativeButtons;
 using ControllerNames::NativeButtonItem;
@@ -295,9 +297,17 @@ void ApplyConfiguredMappings() {
         // (A on the east position) that aurora already maps by name; applying
         // the shared bindings on top swaps A/B and X/Y. (Wii Remotes with any
         // extension never reach the PAD layer: the game reads them through KPAD.)
-        if (WiiRemoteInput::KindForPort(port) == WiiRemoteInput::Kind::WiiUPro) {
+        if (WiiRemoteInput::KindForPort(port) == WiiRemoteInput::Kind::WiiUPro &&
+            !RuntimeConfigFile::XboxOriginalLayout()) {
+            if (g_xboxWiiUOverrides[port]) {
+                PADRestoreDefaultMapping(port);
+                g_xboxWiiUOverrides[port] = false;
+            }
             continue;
         }
+        g_xboxWiiUOverrides[port] =
+            WiiRemoteInput::KindForPort(port) == WiiRemoteInput::Kind::WiiUPro &&
+            RuntimeConfigFile::XboxOriginalLayout();
 
         uint32_t count = 0;
         if (PADGetButtonMappings(port, &count) == nullptr || count != PAD_BUTTON_COUNT) {
@@ -781,8 +791,11 @@ void DrawRumbleSettings() {
 }
 
 void DrawControllerSettings() {
-    ImGui::TextUnformatted("Every connected gamepad controls Mario (player 1), mapped for its type.");
-    ImGui::TextDisabled("Pick the controller type or remap buttons in the launcher's Controls page.");
+    ImGui::TextUnformatted("Connected gamepads control Scooby. Presets are shared by all gamepad ports.");
+    ImGui::TextDisabled("Apply a preset here or in the launcher; existing bindings stay until you apply one.");
+    static bool presetSaveFailed = false;
+    if (presetSaveFailed)
+        ImGui::TextColored(ImVec4(1, 0.3f, 0.3f, 1), "Could not save all controller settings; check Config.toml access.");
     ImGui::Separator();
     for (int port = 0; port < PAD_MAX_CONTROLLERS; ++port) {
         const std::string label = "Port " + std::to_string(port + 1);
@@ -858,6 +871,7 @@ void DrawControllerSettings() {
 
     ImGui::SeparatorText("Presets");
     if (ImGui::Button("GameCube")) {
+        presetSaveFailed = !RuntimeConfigFile::SetControllerLayout("gamecube");
         const uint32_t port = static_cast<uint32_t>(g_controllerPort);
         PADRestoreDefaultMapping(port);
         uint32_t restoredCount = 0;
@@ -867,24 +881,34 @@ void DrawControllerSettings() {
                     return mapping.padButton == kControllerButtons[i].padButton;
                 });
                 if (it != restored + restoredCount) {
-                    RuntimeConfigFile::SetControllerButton(i, NativeButtonForValue(it->nativeButton).configName);
+                    presetSaveFailed |= !RuntimeConfigFile::SetControllerButton(i, NativeBindingConfig(it->nativeButton));
                 }
+                g_configuredControllerIndices.fill(std::numeric_limits<int32_t>::min());
+                ApplyConfiguredMappings();
             }
         }
         altRowExpanded.fill(false);
         PADSerializeMappings();
         mappings = PADGetButtonMappings(port, &mappingCount);
     }
-    const auto applyPreset = [&](const std::array<const char*, PAD_BUTTON_COUNT>& preset) {
+    const auto applyPreset = [&](const std::array<const char*, PAD_BUTTON_COUNT>& preset, bool xbox = false) {
+        presetSaveFailed = false;
         const uint32_t port = static_cast<uint32_t>(g_controllerPort);
         for (size_t i = 0; i < kControllerButtons.size(); ++i) {
             if (const NativeButtonItem* native = FindNativeButton(preset[i])) {
-                PADSetButtonMapping(port, PADButtonMapping{native->nativeButton, kControllerButtons[i].padButton});
+                PADSetButtonMapping(port, PADButtonMapping{ConfiguredNativeButton(*native, preset[i]), kControllerButtons[i].padButton});
                 PADSetAltButtonMapping(port,
                                        PADButtonMapping{PAD_NATIVE_BUTTON_INVALID, kControllerButtons[i].padButton});
-                RuntimeConfigFile::SetControllerButton(i, preset[i]);
+                presetSaveFailed |= !RuntimeConfigFile::SetControllerButton(i, preset[i]);
             }
         }
+        if (xbox) {
+            presetSaveFailed |= !RuntimeConfigFile::SetXboxButton(0, "right_shoulder");
+            presetSaveFailed |= !RuntimeConfigFile::SetXboxButton(1, "left_shoulder");
+        }
+        presetSaveFailed |= !RuntimeConfigFile::SetControllerLayout(xbox ? "xbox_original" : "gamecube");
+        g_configuredControllerIndices.fill(std::numeric_limits<int32_t>::min());
+        ApplyConfiguredMappings();
         altRowExpanded.fill(false);
         PADSerializeMappings();
         mappings = PADGetButtonMappings(port, &mappingCount);
@@ -897,6 +921,27 @@ void DrawControllerSettings() {
     ImGui::SameLine();
     if (ImGui::Button("PlayStation")) {
         applyPreset(kPlayStationPreset);
+    }
+    if (ImGui::Button("Xbox original (Black = RB, White = LB)")) {
+        applyPreset(No100fXboxLayout::kBindings, true);
+    }
+    if (RuntimeConfigFile::XboxOriginalLayout()) {
+        ImGui::TextDisabled("Xbox original: A jump, B interact/dig, X head smash, Y display, LT gum, RT run.");
+        ImGui::TextDisabled("Existing keyboard bindings and additive expressions remain active.");
+        for (size_t action = 0; action < 2; ++action) {
+            const auto token = RuntimeConfigFile::XboxButton(action);
+            const auto* current = FindNativeButton(token);
+            const char* label = action == 0 ? "Black / Sneak" : "White / Soap bubble";
+            if (ImGui::BeginCombo(label, current ? current->label : token.c_str())) {
+                for (const auto& native : ControllerNames::kNativeButtons) {
+                    if (native.nativeButton != PAD_NATIVE_BUTTON_DISABLED &&
+                        native.nativeButton >= SDL_GAMEPAD_BUTTON_COUNT) continue;
+                    if (ImGui::Selectable(native.label, token == native.configName))
+                        presetSaveFailed |= !RuntimeConfigFile::SetXboxButton(action, native.configName);
+                }
+                ImGui::EndCombo();
+            }
+        }
     }
 
     ImGui::SeparatorText("Button mapping");
@@ -978,7 +1023,12 @@ void DrawControllerSettings() {
             }
         }
         ImGui::SameLine();
-        ImGui::TextUnformatted(kControllerButtons[i].label);
+        static constexpr std::array<const char*, PAD_BUTTON_COUNT> xboxLabels{
+            "A / Jump", "X / Head smash", "B / Dig, enter, talk", "Y / On-screen display",
+            "Start / Pause", "GameCube Z modifier", "LT / Gum", "RT / Run",
+            "Move up", "Move down", "Move left", "Move right",
+        };
+        ImGui::TextUnformatted(RuntimeConfigFile::XboxOriginalLayout() ? xboxLabels[i] : kControllerButtons[i].label);
         ImGui::PopID();
     }
     DrawExpressionSettings();

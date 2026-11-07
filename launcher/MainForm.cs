@@ -505,6 +505,26 @@ sealed class MainForm : Form
         var (card, body) = NewCard("Controls");
         body.Controls.Add(Note("Gamepads (Xbox, PlayStation, Switch Pro, GameCube adapter...) work right away as a GameCube controller. " +
                                "To change any button, press F10 in the game and open Controller settings."));
+        body.Controls.Add(Note("Xbox original: A jump, B dig/enter/talk, X head smash, Y on-screen display, " +
+                               "LT gum, RT run, RB sneak (Black), LB soap bubble (White), left stick/D-pad movement, Start pause. " +
+                               "Applying replaces gamepad button bindings, not keyboard bindings. Apply before launching; " +
+                               "use F10 > Controller > GameCube to restore the usual layout."));
+        var applyXbox = Btn("Apply Xbox-original layout", (_, _) =>
+        {
+            try
+            {
+                var config = new GameConfig(configPath);
+                XboxControllerLayout.Apply(config);
+                config.Save();
+                MessageBox.Show(this, "Xbox-original layout saved. It takes effect next time you launch the game.", AppTitle);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                MessageBox.Show(this, "Could not save controller settings: " + error.Message,
+                                AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        });
+        body.Controls.Add(applyXbox);
         body.Controls.Add(new Label { Text = "Keyboard", Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = Ink, AutoSize = true, Margin = S(0, 10, 0, 0) });
         var table = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, BackColor = Paper, Margin = S(0, 8, 0, 8), CellBorderStyle = TableLayoutPanelCellBorderStyle.Single };
         foreach (var (what, key) in new[] { ("Move", "W A S D"), ("Camera (C-stick)", "Arrow keys"), ("A (jump)", "Space"), ("B", "Left Shift"),

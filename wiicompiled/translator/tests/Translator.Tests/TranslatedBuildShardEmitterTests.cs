@@ -113,6 +113,7 @@ public sealed class TranslatedBuildShardEmitterTests
             Assert.DoesNotContain("#include \"" + Path.GetFullPath(Path.Combine(functions, "func_80001000.cpp")).Replace('\\', '/'), shardText);
             Assert.Contains("MKW_STATIC_TRANSLATED_CALL(0x80002000u, func_80002000, ctx);", shardText);
             Assert.Contains("ApplyRuntimeCallOptions(Target, Context)", shardText);
+            Assert.Contains("No100fXboxPadCall xboxPadCall(Target, Context); Entry(Context)", shardText);
 
             var portableBaseTraits = Directory.GetFiles(Path.Combine(output, "base_portable_sensitive"), "*_traits.h").Single();
             var portableRetroTraits = Directory.GetFiles(Path.Combine(output, "retro_portable_sensitive"), "*_traits.h").Single();

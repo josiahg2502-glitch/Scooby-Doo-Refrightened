@@ -716,6 +716,10 @@ static void apply_unblock_suppression(PADStatus& status, const u32 port, const b
 }
 
 u32 PADRead(PADStatus* status) {
+  return PADReadWithGamepadButtonFilter(status, nullptr);
+}
+
+u32 PADReadWithGamepadButtonFilter(PADStatus* status, PADGamepadButtonFilter filter) {
   if (!g_keyboardBindingsLoaded) {
     g_keyboardBindingsLoaded = true;
     load_keyboard_bindings();
@@ -731,6 +735,7 @@ u32 PADRead(PADStatus* status) {
   for (uint32_t i = 0; i < PAD_CHANMAX; ++i) {
     memset(&status[i], 0, sizeof(PADStatus));
     auto controller = aurora::input::get_controller_for_player(i);
+    if (controller == nullptr && filter != nullptr) filter(i, 0, 0, inputBlocked);
     if (controller == nullptr && !g_keyboardBindings[i].m_mappingsSet) {
       status[i].err = PAD_ERR_NO_CONTROLLER;
       g_suppressedButtons[i] = 0;
@@ -850,10 +855,11 @@ u32 PADRead(PADStatus* status) {
 
       bool leftTriggerSet = false;
       bool rightTriggerSet = false;
+      u16 gamepadButtons = 0;
       std::for_each(controller->m_buttonMapping.begin(), controller->m_buttonMapping.end(),
-                    [&controller, &i, &status, &leftTriggerSet, &rightTriggerSet](const auto& mapping) {
+                    [&controller, &gamepadButtons, &leftTriggerSet, &rightTriggerSet](const auto& mapping) {
         if (is_native_binding_pressed(controller->m_controller, mapping.nativeButton)) {
-          status[i].button |= mapping.padButton;
+          gamepadButtons |= mapping.padButton;
         }
 
         if (mapping.padButton == PAD_TRIGGER_L && mapping.nativeButton != PAD_NATIVE_BUTTON_INVALID) {
@@ -865,12 +871,12 @@ u32 PADRead(PADStatus* status) {
       });
 
       std::for_each(controller->m_altButtonMapping.begin(), controller->m_altButtonMapping.end(),
-                    [&controller, &i, &status, &leftTriggerSet, &rightTriggerSet](const auto& mapping) {
+                    [&controller, &gamepadButtons, &leftTriggerSet, &rightTriggerSet](const auto& mapping) {
         if (mapping.nativeButton == PAD_NATIVE_BUTTON_INVALID) {
           return;
         }
         if (is_native_binding_pressed(controller->m_controller, mapping.nativeButton)) {
-          status[i].button |= mapping.padButton;
+          gamepadButtons |= mapping.padButton;
         }
 
         if (mapping.padButton == PAD_TRIGGER_L) {
@@ -881,6 +887,10 @@ u32 PADRead(PADStatus* status) {
         }
       });
 
+
+      if (filter != nullptr)
+        gamepadButtons = filter(i, SDL_GetGamepadID(controller->m_controller), gamepadButtons, inputBlocked);
+      status[i].button |= gamepadButtons;
 
       // TODO: Add serializable mappings for these (probably not necessary)?
       static constexpr std::array<std::pair<SDL_GamepadButton, PADExtButton>, PAD_EXT_BUTTON_COUNT> kExtButtonMappings{{

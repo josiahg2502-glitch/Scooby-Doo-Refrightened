@@ -125,6 +125,9 @@ struct SDL_Gamepad;
 
 BOOL PADInit();
 u32 PADRead(PADStatus* status);
+// Transforms only mapped gamepad buttons, before merging keyboard/mouse input.
+typedef u16 (*PADGamepadButtonFilter)(u32 port, u32 device, u16 buttons, BOOL blocked);
+u32 PADReadWithGamepadButtonFilter(PADStatus* status, PADGamepadButtonFilter filter);
 BOOL PADReset(u32 mask);
 BOOL PADRecalibrate(u32 mask);
 void PADClamp(PADStatus* status);
